@@ -1,0 +1,107 @@
+---
+title: "MLM - ex1"
+author: "Tomer Zipori"
+format: html
+execute: 
+  warning: false
+  message: false
+  cache: true
+editor: visual
+---
+
+# Setup
+```{r}
+#| output: false
+library(tidyverse)
+library(performance)
+library(parameters)
+library(lmerTest)
+library(sjPlot)
+```
+
+# Loading data
+```{r}
+dataset2 <- read.csv("Example- Couples relational Satisfaction.csv")
+
+head (dataset2)
+```
+
+## Converting to long format
+```{r}
+data_long <- dataset2 |>
+  pivot_longer(cols = c(M_sat, F_sat),
+               names_to = "gender",
+               values_to = "satisfaction") |>
+  mutate(gender = case_when(gender == "M_sat" ~ "male",
+                            gender == "F_sat" ~ "female"))
+```
+
+# Part I
+## Empty model
+```{r}
+model_A <- lm(satisfaction ~ 1, data = data_long)
+
+summary(model_A)
+```
+The intercept in the empty model is equal to the grand mean of the Dependent variable. In this case it is $1.1401$.
+
+## Random intercepts model
+```{r}
+model_B <- lmer(satisfaction ~ 1 + (1 | ID), data = data_long)
+
+parameters(model_B)
+```
+## How much variance is explained by the random intercepts?
+```{r}
+icc(model_B)
+```
+51.2% of the variance in the dependent variable is explained by the random intercepts of each couple.
+
+### Model comparison
+```{r}
+ranova(model_B)
+```
+
+The addition of explained variance by the random intercepts is **significant**.
+AIC measures also indicate that model1 is better fitted to the data (small AIC = better fit).
+
+
+# Part 2
+## Model C - predicting satisfaction from gender (no random effects)
+```{r}
+model_C <- lm(satisfaction ~ gender, data = data_long)
+
+summary(model_C)
+```
+
+## Model D - predicting satisfaction from gender (with random intercepts and slopes per couple)
+```{r}
+model_D <- lmer(satisfaction ~ gender + (1 | ID), data = data_long)
+
+parameters(model_D)
+```
+
+## Model E - adding duration and (with random intercepts)
+```{r}
+model_E <- lmer(satisfaction ~ Duration * gender + (1 | ID), data = data_long)
+
+parameters(model_E)
+```
+
+## Model comparison
+### Models C and D
+```{r}
+ranova(model_D)
+
+bayestestR::bayesfactor_models(model_C, model_D)
+```
+Significant support for the model with random effects.
+
+### Models D and E
+```{r}
+anova(model_D, model_E, refit = F)
+```
+Significant support for the model with `Duration` and `Duration X gender` interaction parameters.
+
+
+
