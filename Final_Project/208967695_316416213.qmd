@@ -1,0 +1,179 @@
+---
+title: "Social Status effects on face individuation"
+description: "Statistical analysis"
+author: "Tomer Zipori & Hadas Wardi"
+date: last-modified
+title-block-banner: "#525266"
+execute: 
+  warning: false
+  message: false
+  cache: true
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+editor: visual
+---
+
+# Setup
+
+```{r}
+#| output: false
+library(tidyverse)
+library(flextable)
+library(lmerTest)
+library(optimx)
+library(performance)
+library(parameters)
+library(bayestestR)
+library(emmeans)
+library(ggeffects)
+library(ggdist)
+```
+
+# Data Loading
+
+```{r}
+data_ca <- read_rds("208967695_316416213.rds") |>
+  mutate(Correct_Identity = factor(Correct_Identity)) |>
+  filter(Identity == "Diff")
+
+#data_ca <- readRDS(file.choose())
+```
+
+# Descriptives
+
+#### Colors for plots
+
+```{r}
+color_vec <- c("#4b3d8f", "#37a987")
+```
+
+## Participant's socio-economic status (SES)
+
+## Social Economic Status (SES)
+
+```{r}
+#| code-fold: true
+data_ca |>
+  group_by(Participant_Public_ID) |>
+  summarise(SES = unique(SES),
+            .groups = "drop") |>
+  drop_na(SES) |>
+  ggplot(aes(x = SES)) +
+    geom_histogram(stat = "count", binwidth = 1) +
+    stat_bin(binwidth = 1, geom = 'text', color = 'white', aes(label = after_stat(count)),
+           position = position_stack(vjust = 0.5)) +
+    scale_x_continuous(breaks = c(1:10)) +
+    scale_y_continuous(breaks = seq(0, 160, 10)) +
+    labs(title = "On a scale of 1-10 how would you rate your Social-Economic status?",
+       subtitle = "1 = Lowest status, 10 = Highest status",
+       y = "Number of participants",
+       x = "") +
+    theme_classic() +
+    theme(plot.title = element_text(family = "serif", hjust = 0.5, size = 16),
+        plot.subtitle = element_text(family = "serif", hjust = 0.5, size = 10))
+```
+
+## Correct Answers
+
+```{r}
+#| code-fold: true
+plot1 <- data_ca |>
+  group_by(Participant_Private_ID, Social_Status, SES) |>
+  summarise(sum_correct = sum(Correct_Identity == "yes"),
+            .groups = "drop") |>
+  ggplot(aes(x = SES, y = sum_correct, color = Social_Status)) +
+  geom_point(position = position_jitter(width = .1, height = .2, seed = 14)) +
+  geom_smooth(method = "lm") +
+  scale_color_discrete(type = color_vec) +
+  scale_x_continuous(breaks = seq(1,10,1)) +
+  scale_y_continuous(breaks = seq(0, 20, 2)) +
+  scale_color_discrete(labels = c("Low", "High"), type = color_vec) +
+  labs(x = "Subject's SES", y = "Sum of Correct Answers", title = "Number of correct identifications in each status condition",
+       color = "Target's Social Status") +
+  theme_classic() +
+  theme(axis.title = element_text(family = "serif", size = 12),
+        plot.title = element_text(family = "serif", size = 15, hjust = 0.5),
+        legend.title = element_text(family = "serif", size = 11, hjust = 0.5))
+
+plot1
+```
+
+# Results
+
+## Empty model - random intercepts for participant
+
+```{r}
+model00 <- glmer(Correct_Identity ~ 1 + (1 | Participant_Private_ID),
+                data = drop_na(data_ca, SES),
+                family = binomial(link = "logit"))
+
+model_parameters(model00, exponentiate = T)
+
+model_performance(model00)
+```
+
+## Empty model - random intercepts for participant + random effects for occupations
+
+```{r}
+model01 <- glmer(Correct_Identity ~ 1 + (1 | Participant_Private_ID) + (1 | Occupation:Social_Status),
+                data = drop_na(data_ca, SES),
+                family = binomial(link = "logit"),
+                control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5)))
+
+model_parameters(model01, exponentiate = T)
+
+model_performance(model01)
+```
+
+```{r}
+anova(model00, model01, refit = F)
+```
+
+## Model without interaction
+
+```{r}
+model1 <- glmer(Correct_Identity ~ SES + Social_Status + (1 | Participant_Private_ID),
+                data = drop_na(data_ca, SES),
+                family = binomial(link = "logit"),
+                control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5)))
+
+model_parameters(model1, exponentiate = T)
+
+model_performance(model1)
+```
+
+## Model with interaction
+
+```{r}
+model2 <- glmer(Correct_Identity ~ SES * Social_Status + (1 | Participant_Private_ID),
+                data = drop_na(data_ca, SES),
+                family = binomial(link = "logit"),
+                control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5)))
+
+model_parameters(model2, exponentiate = T)
+
+model_performance(model2)
+```
+
+## Model comparison
+
+```{r}
+anova(model2, model00)
+```
+
+```{r}
+anova(model1, model00)
+```
+
+```{r}
+anova(model2, model1)
+```
+
+## Fancy tables
+
+```{r}
+sjPlot::tab_model(model2, model1, show.se = T, show.stat = T, show.df = T, title = "Table 1", show.r2 = T, show.aic = T, show.loglik = T)
+```
