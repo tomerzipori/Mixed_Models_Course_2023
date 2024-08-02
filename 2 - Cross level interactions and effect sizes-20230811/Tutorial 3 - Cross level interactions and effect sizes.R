@@ -9,7 +9,7 @@
 
 # The Data ------------------------------------------------------------------
 
-Nemo <- read.csv("Nemo.csv") # The child-Flanker task
+Nemo <- read.csv("2 - Cross level interactions and effect sizes-20230811/Nemo.csv") # The child-Flanker task
 Nemo <-read.csv(file.choose()) # If you are not working with r.project
 
 head(Nemo) 
@@ -18,7 +18,7 @@ head(Nemo)
 # Condition - the Flanker condition - See "Nemo Flanker.png"
 
 
-Symptoms <- read.csv("Symptoms.csv")
+Symptoms <- read.csv("2 - Cross level interactions and effect sizes-20230811/Symptoms.csv")
 Symptoms <-read.csv(file.choose())
 
 head(Symptoms)
